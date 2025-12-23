@@ -1,21 +1,21 @@
 import { Header } from '@/components/Header';
-import { Dashboard } from '@/components/Dashboard';
+import { ReportGenerator } from '@/components/ReportGenerator';
 
-const Index = () => {
+const Reports = () => {
   return (
     <div className="min-h-screen bg-background">
       <Header />
       <main className="container px-4 py-6">
         <div className="mb-6">
-          <h2 className="text-2xl font-display font-bold">All Complaints</h2>
+          <h2 className="text-2xl font-display font-bold">Reports</h2>
           <p className="text-muted-foreground text-sm">
-            Track and manage hostel maintenance requests
+            Generate and download complaint reports
           </p>
         </div>
-        <Dashboard />
+        <ReportGenerator />
       </main>
     </div>
   );
 };
 
-export default Index;
+export default Reports;

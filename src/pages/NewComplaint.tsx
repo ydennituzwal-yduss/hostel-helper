@@ -1,21 +1,21 @@
 import { Header } from '@/components/Header';
-import { Dashboard } from '@/components/Dashboard';
+import { ComplaintForm } from '@/components/ComplaintForm';
 
-const Index = () => {
+const NewComplaint = () => {
   return (
     <div className="min-h-screen bg-background">
       <Header />
       <main className="container px-4 py-6">
         <div className="mb-6">
-          <h2 className="text-2xl font-display font-bold">All Complaints</h2>
+          <h2 className="text-2xl font-display font-bold">Submit Complaint</h2>
           <p className="text-muted-foreground text-sm">
-            Track and manage hostel maintenance requests
+            Fill out the form below to report a hostel issue
           </p>
         </div>
-        <Dashboard />
+        <ComplaintForm />
       </main>
     </div>
   );
 };
 
-export default Index;
+export default NewComplaint;

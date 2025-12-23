@@ -1,0 +1,364 @@
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useToast } from '@/hooks/use-toast';
+import { useComplaints } from '@/hooks/useComplaints';
+import {
+  Complaint,
+  Severity,
+  HOSTELS,
+  ISSUE_TYPES,
+  generateComplaintId,
+} from '@/types/complaint';
+import { Upload, X, ImageIcon, Video, Send, AlertCircle } from 'lucide-react';
+
+export const ComplaintForm = () => {
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const { addComplaint } = useComplaints();
+
+  const [formData, setFormData] = useState({
+    hostel: '',
+    roomNumber: '',
+    studentName: '',
+    rollNumber: '',
+    issueType: '',
+    customIssue: '',
+    severity: 'Normal' as Severity,
+    description: '',
+  });
+
+  const [images, setImages] = useState<string[]>([]);
+  const [video, setVideo] = useState<string | undefined>();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+
+    if (images.length + files.length > 3) {
+      toast({
+        title: 'Too many images',
+        description: 'You can upload up to 3 images only.',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    Array.from(files).forEach((file) => {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImages((prev) => [...prev, reader.result as string]);
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleVideoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setVideo(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const removeImage = (index: number) => {
+    setImages((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+
+    const complaintId = generateComplaintId();
+    const now = new Date().toISOString();
+
+    const complaint: Complaint = {
+      id: complaintId,
+      hostel: formData.hostel,
+      roomNumber: formData.roomNumber,
+      studentName: formData.studentName,
+      rollNumber: formData.rollNumber,
+      issueType: formData.issueType === 'Other' ? formData.customIssue : formData.issueType,
+      severity: formData.severity,
+      description: formData.description,
+      images,
+      video,
+      status: 'Pending',
+      level: 'Level 1',
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    addComplaint(complaint);
+
+    toast({
+      title: 'Complaint Submitted!',
+      description: `Your complaint ID is: ${complaintId}`,
+    });
+
+    navigate(`/complaint/${complaintId}`);
+    setIsSubmitting(false);
+  };
+
+  const isFormValid =
+    formData.hostel &&
+    formData.roomNumber &&
+    formData.studentName &&
+    formData.rollNumber &&
+    formData.issueType &&
+    (formData.issueType !== 'Other' || formData.customIssue) &&
+    formData.description;
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-6 animate-fade-in">
+      <Card className="glass-card">
+        <CardHeader className="pb-4">
+          <CardTitle className="text-lg font-display flex items-center gap-2">
+            <AlertCircle className="h-5 w-5 text-primary" />
+            Student Information
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="hostel">Hostel *</Label>
+              <Select
+                value={formData.hostel}
+                onValueChange={(value) => setFormData({ ...formData, hostel: value })}
+              >
+                <SelectTrigger id="hostel" className="bg-background">
+                  <SelectValue placeholder="Select hostel" />
+                </SelectTrigger>
+                <SelectContent className="bg-popover">
+                  {HOSTELS.map((hostel) => (
+                    <SelectItem key={hostel} value={hostel}>
+                      {hostel}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="roomNumber">Room Number *</Label>
+              <Input
+                id="roomNumber"
+                placeholder="e.g., 101"
+                value={formData.roomNumber}
+                onChange={(e) => setFormData({ ...formData, roomNumber: e.target.value })}
+                className="bg-background"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="studentName">Student Name *</Label>
+              <Input
+                id="studentName"
+                placeholder="Enter your full name"
+                value={formData.studentName}
+                onChange={(e) => setFormData({ ...formData, studentName: e.target.value })}
+                className="bg-background"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="rollNumber">Roll Number *</Label>
+              <Input
+                id="rollNumber"
+                placeholder="e.g., 21CS1001"
+                value={formData.rollNumber}
+                onChange={(e) => setFormData({ ...formData, rollNumber: e.target.value })}
+                className="bg-background"
+              />
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="glass-card">
+        <CardHeader className="pb-4">
+          <CardTitle className="text-lg font-display">Complaint Details</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="issueType">Issue Type *</Label>
+            <Select
+              value={formData.issueType}
+              onValueChange={(value) => setFormData({ ...formData, issueType: value })}
+            >
+              <SelectTrigger id="issueType" className="bg-background">
+                <SelectValue placeholder="Select issue type" />
+              </SelectTrigger>
+              <SelectContent className="bg-popover">
+                {ISSUE_TYPES.map((type) => (
+                  <SelectItem key={type} value={type}>
+                    {type}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
+          {formData.issueType === 'Other' && (
+            <div className="space-y-2 animate-fade-in">
+              <Label htmlFor="customIssue">Specify Issue *</Label>
+              <Input
+                id="customIssue"
+                placeholder="Describe the issue type"
+                value={formData.customIssue}
+                onChange={(e) => setFormData({ ...formData, customIssue: e.target.value })}
+                className="bg-background"
+              />
+            </div>
+          )}
+
+          <div className="space-y-3">
+            <Label>Severity *</Label>
+            <RadioGroup
+              value={formData.severity}
+              onValueChange={(value) => setFormData({ ...formData, severity: value as Severity })}
+              className="flex flex-col sm:flex-row gap-3"
+            >
+              <div className="flex items-center space-x-2 p-3 rounded-lg border bg-background hover:border-primary/50 transition-colors cursor-pointer">
+                <RadioGroupItem value="Normal" id="normal" />
+                <Label htmlFor="normal" className="cursor-pointer flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-severity-normal" />
+                  Normal
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2 p-3 rounded-lg border bg-background hover:border-primary/50 transition-colors cursor-pointer">
+                <RadioGroupItem value="Needs Quick Attention" id="urgent" />
+                <Label htmlFor="urgent" className="cursor-pointer flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-severity-urgent" />
+                  Needs Quick Attention
+                </Label>
+              </div>
+              <div className="flex items-center space-x-2 p-3 rounded-lg border bg-background hover:border-primary/50 transition-colors cursor-pointer">
+                <RadioGroupItem value="Extreme" id="extreme" />
+                <Label htmlFor="extreme" className="cursor-pointer flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-severity-extreme" />
+                  Extreme
+                </Label>
+              </div>
+            </RadioGroup>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="description">Description *</Label>
+            <Textarea
+              id="description"
+              placeholder="Describe your complaint in detail..."
+              value={formData.description}
+              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              className="min-h-[120px] bg-background resize-none"
+            />
+          </div>
+        </CardContent>
+      </Card>
+
+      <Card className="glass-card">
+        <CardHeader className="pb-4">
+          <CardTitle className="text-lg font-display">Attachments</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label className="flex items-center gap-2">
+              <ImageIcon className="h-4 w-4" />
+              Images (up to 3)
+            </Label>
+            <div className="flex flex-wrap gap-3">
+              {images.map((img, index) => (
+                <div key={index} className="relative group">
+                  <img
+                    src={img}
+                    alt={`Upload ${index + 1}`}
+                    className="w-20 h-20 object-cover rounded-lg border"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => removeImage(index)}
+                    className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-1 opacity-0 group-hover:opacity-100 transition-opacity"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              ))}
+              {images.length < 3 && (
+                <label className="w-20 h-20 border-2 border-dashed rounded-lg flex items-center justify-center cursor-pointer hover:border-primary/50 transition-colors bg-muted/30">
+                  <Upload className="h-6 w-6 text-muted-foreground" />
+                  <input
+                    type="file"
+                    accept="image/*"
+                    multiple
+                    className="hidden"
+                    onChange={handleImageUpload}
+                  />
+                </label>
+              )}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label className="flex items-center gap-2">
+              <Video className="h-4 w-4" />
+              Video (optional)
+            </Label>
+            {video ? (
+              <div className="relative inline-block">
+                <video src={video} className="w-40 h-24 object-cover rounded-lg border" controls />
+                <button
+                  type="button"
+                  onClick={() => setVideo(undefined)}
+                  className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-1"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            ) : (
+              <label className="w-40 h-24 border-2 border-dashed rounded-lg flex items-center justify-center cursor-pointer hover:border-primary/50 transition-colors bg-muted/30">
+                <div className="text-center">
+                  <Upload className="h-6 w-6 text-muted-foreground mx-auto" />
+                  <span className="text-xs text-muted-foreground mt-1">Upload video</span>
+                </div>
+                <input
+                  type="file"
+                  accept="video/*"
+                  className="hidden"
+                  onChange={handleVideoUpload}
+                />
+              </label>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      <Button
+        type="submit"
+        size="lg"
+        disabled={!isFormValid || isSubmitting}
+        className="w-full font-semibold"
+      >
+        <Send className="h-4 w-4 mr-2" />
+        {isSubmitting ? 'Submitting...' : 'Submit Complaint'}
+      </Button>
+    </form>
+  );
+};
