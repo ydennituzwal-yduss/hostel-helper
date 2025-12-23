@@ -40,15 +40,17 @@ export const ComplaintForm = () => {
     description: '',
   });
 
-  const [images, setImages] = useState<string[]>([]);
-  const [video, setVideo] = useState<string | undefined>();
+  const [imageFiles, setImageFiles] = useState<File[]>([]);
+  const [imagePreviews, setImagePreviews] = useState<string[]>([]);
+  const [videoFile, setVideoFile] = useState<File | undefined>();
+  const [videoPreview, setVideoPreview] = useState<string | undefined>();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (!files) return;
 
-    if (images.length + files.length > 3) {
+    if (imageFiles.length + files.length > 3) {
       toast({
         title: 'Too many images',
         description: 'You can upload up to 3 images only.',
@@ -58,9 +60,10 @@ export const ComplaintForm = () => {
     }
 
     Array.from(files).forEach((file) => {
+      setImageFiles((prev) => [...prev, file]);
       const reader = new FileReader();
       reader.onloadend = () => {
-        setImages((prev) => [...prev, reader.result as string]);
+        setImagePreviews((prev) => [...prev, reader.result as string]);
       };
       reader.readAsDataURL(file);
     });
@@ -70,50 +73,60 @@ export const ComplaintForm = () => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    setVideoFile(file);
     const reader = new FileReader();
     reader.onloadend = () => {
-      setVideo(reader.result as string);
+      setVideoPreview(reader.result as string);
     };
     reader.readAsDataURL(file);
   };
 
   const removeImage = (index: number) => {
-    setImages((prev) => prev.filter((_, i) => i !== index));
+    setImageFiles((prev) => prev.filter((_, i) => i !== index));
+    setImagePreviews((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
 
-    const complaintId = generateComplaintId();
-    const now = new Date().toISOString();
+    try {
+      const complaintId = generateComplaintId();
+      const now = new Date().toISOString();
 
-    const complaint: Complaint = {
-      id: complaintId,
-      hostel: formData.hostel,
-      roomNumber: formData.roomNumber,
-      studentName: formData.studentName,
-      rollNumber: formData.rollNumber,
-      issueType: formData.issueType === 'Other' ? formData.customIssue : formData.issueType,
-      severity: formData.severity,
-      description: formData.description,
-      images,
-      video,
-      status: 'Pending',
-      level: 'Level 1',
-      createdAt: now,
-      updatedAt: now,
-    };
+      const complaint: Complaint = {
+        id: complaintId,
+        hostel: formData.hostel,
+        roomNumber: formData.roomNumber,
+        studentName: formData.studentName,
+        rollNumber: formData.rollNumber,
+        issueType: formData.issueType === 'Other' ? formData.customIssue : formData.issueType,
+        severity: formData.severity,
+        description: formData.description,
+        images: [],
+        status: 'Pending',
+        level: 'Level 1',
+        createdAt: now,
+        updatedAt: now,
+      };
 
-    addComplaint(complaint);
+      await addComplaint(complaint, imageFiles, videoFile);
 
-    toast({
-      title: 'Complaint Submitted!',
-      description: `Your complaint ID is: ${complaintId}`,
-    });
+      toast({
+        title: 'Complaint Submitted!',
+        description: `Your complaint ID is: ${complaintId}`,
+      });
 
-    navigate(`/complaint/${complaintId}`);
-    setIsSubmitting(false);
+      navigate(`/complaint/${complaintId}`);
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to submit complaint. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const isFormValid =
@@ -285,7 +298,7 @@ export const ComplaintForm = () => {
               Images (up to 3)
             </Label>
             <div className="flex flex-wrap gap-3">
-              {images.map((img, index) => (
+              {imagePreviews.map((img, index) => (
                 <div key={index} className="relative group">
                   <img
                     src={img}
@@ -301,7 +314,7 @@ export const ComplaintForm = () => {
                   </button>
                 </div>
               ))}
-              {images.length < 3 && (
+              {imagePreviews.length < 3 && (
                 <label className="w-20 h-20 border-2 border-dashed rounded-lg flex items-center justify-center cursor-pointer hover:border-primary/50 transition-colors bg-muted/30">
                   <Upload className="h-6 w-6 text-muted-foreground" />
                   <input
@@ -321,12 +334,15 @@ export const ComplaintForm = () => {
               <Video className="h-4 w-4" />
               Video (optional)
             </Label>
-            {video ? (
+            {videoPreview ? (
               <div className="relative inline-block">
-                <video src={video} className="w-40 h-24 object-cover rounded-lg border" controls />
+                <video src={videoPreview} className="w-40 h-24 object-cover rounded-lg border" controls />
                 <button
                   type="button"
-                  onClick={() => setVideo(undefined)}
+                  onClick={() => {
+                    setVideoFile(undefined);
+                    setVideoPreview(undefined);
+                  }}
                   className="absolute -top-2 -right-2 bg-destructive text-destructive-foreground rounded-full p-1"
                 >
                   <X className="h-3 w-3" />

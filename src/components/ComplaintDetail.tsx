@@ -31,38 +31,61 @@ interface ComplaintDetailProps {
 export const ComplaintDetail = ({ complaint }: ComplaintDetailProps) => {
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { escalateComplaint, resolveComplaint, submitFeedback, getComplaintById } = useComplaints();
+  const { escalateComplaint, resolveComplaint, submitFeedback, refetch } = useComplaints();
 
   const [feedbackRating, setFeedbackRating] = useState(0);
   const [feedbackComment, setFeedbackComment] = useState('');
   const [showFeedback, setShowFeedback] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const currentComplaint = getComplaintById(complaint.id) || complaint;
+  const canEscalate = complaint.level !== 'Level 4' && complaint.status !== 'Resolved';
+  const canResolve = complaint.status !== 'Resolved';
+  const canGiveFeedback = complaint.status === 'Resolved' && !complaint.feedback;
 
-  const canEscalate = currentComplaint.level !== 'Level 4' && currentComplaint.status !== 'Resolved';
-  const canResolve = currentComplaint.status !== 'Resolved';
-  const canGiveFeedback = currentComplaint.status === 'Resolved' && !currentComplaint.feedback;
-
-  const handleEscalate = () => {
-    escalateComplaint(currentComplaint.id);
-    toast({
-      title: 'Complaint Escalated',
-      description: `Escalated to ${LEVEL_ROLES[currentComplaint.level === 'Level 1' ? 'Level 2' : currentComplaint.level === 'Level 2' ? 'Level 3' : 'Level 4']}`,
-    });
-    navigate(0);
+  const handleEscalate = async () => {
+    setIsLoading(true);
+    try {
+      await escalateComplaint(complaint.id);
+      toast({
+        title: 'Complaint Escalated',
+        description: `Escalated to ${LEVEL_ROLES[complaint.level === 'Level 1' ? 'Level 2' : complaint.level === 'Level 2' ? 'Level 3' : 'Level 4']}`,
+      });
+      await refetch();
+      navigate(0);
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to escalate complaint.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleResolve = () => {
-    resolveComplaint(currentComplaint.id);
-    toast({
-      title: 'Complaint Resolved',
-      description: 'The complaint has been marked as resolved.',
-    });
-    setShowFeedback(true);
-    navigate(0);
+  const handleResolve = async () => {
+    setIsLoading(true);
+    try {
+      await resolveComplaint(complaint.id);
+      toast({
+        title: 'Complaint Resolved',
+        description: 'The complaint has been marked as resolved.',
+      });
+      setShowFeedback(true);
+      await refetch();
+      navigate(0);
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to resolve complaint.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleSubmitFeedback = () => {
+  const handleSubmitFeedback = async () => {
     if (feedbackRating === 0) {
       toast({
         title: 'Rating Required',
@@ -72,12 +95,24 @@ export const ComplaintDetail = ({ complaint }: ComplaintDetailProps) => {
       return;
     }
 
-    submitFeedback(currentComplaint.id, feedbackRating, feedbackComment);
-    toast({
-      title: 'Feedback Submitted',
-      description: 'Thank you for your feedback!',
-    });
-    navigate(0);
+    setIsLoading(true);
+    try {
+      await submitFeedback(complaint.id, feedbackRating, feedbackComment);
+      toast({
+        title: 'Feedback Submitted',
+        description: 'Thank you for your feedback!',
+      });
+      await refetch();
+      navigate(0);
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to submit feedback.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -86,9 +121,9 @@ export const ComplaintDetail = ({ complaint }: ComplaintDetailProps) => {
         <div className="bg-primary/5 px-4 py-3 border-b">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <span className="font-mono font-bold text-primary text-lg">
-              {currentComplaint.id}
+              {complaint.id}
             </span>
-            <StatusBadge status={currentComplaint.status} />
+            <StatusBadge status={complaint.status} />
           </div>
         </div>
 
@@ -98,7 +133,7 @@ export const ComplaintDetail = ({ complaint }: ComplaintDetailProps) => {
               <Building2 className="h-4 w-4 text-muted-foreground" />
               <div>
                 <p className="text-xs text-muted-foreground">Hostel</p>
-                <p className="font-medium text-sm">{currentComplaint.hostel}</p>
+                <p className="font-medium text-sm">{complaint.hostel}</p>
               </div>
             </div>
 
@@ -106,7 +141,7 @@ export const ComplaintDetail = ({ complaint }: ComplaintDetailProps) => {
               <Hash className="h-4 w-4 text-muted-foreground" />
               <div>
                 <p className="text-xs text-muted-foreground">Room</p>
-                <p className="font-medium text-sm">{currentComplaint.roomNumber}</p>
+                <p className="font-medium text-sm">{complaint.roomNumber}</p>
               </div>
             </div>
 
@@ -114,7 +149,7 @@ export const ComplaintDetail = ({ complaint }: ComplaintDetailProps) => {
               <User className="h-4 w-4 text-muted-foreground" />
               <div>
                 <p className="text-xs text-muted-foreground">Student</p>
-                <p className="font-medium text-sm">{currentComplaint.studentName}</p>
+                <p className="font-medium text-sm">{complaint.studentName}</p>
               </div>
             </div>
 
@@ -122,7 +157,7 @@ export const ComplaintDetail = ({ complaint }: ComplaintDetailProps) => {
               <Hash className="h-4 w-4 text-muted-foreground" />
               <div>
                 <p className="text-xs text-muted-foreground">Roll No</p>
-                <p className="font-medium text-sm">{currentComplaint.rollNumber}</p>
+                <p className="font-medium text-sm">{complaint.rollNumber}</p>
               </div>
             </div>
           </div>
@@ -132,7 +167,7 @@ export const ComplaintDetail = ({ complaint }: ComplaintDetailProps) => {
             <div>
               <p className="text-xs text-muted-foreground">Submitted</p>
               <p className="font-medium text-sm">
-                {format(new Date(currentComplaint.createdAt), 'PPpp')}
+                {format(new Date(complaint.createdAt), 'PPpp')}
               </p>
             </div>
           </div>
@@ -146,24 +181,24 @@ export const ComplaintDetail = ({ complaint }: ComplaintDetailProps) => {
         <CardContent className="space-y-4">
           <div className="flex flex-wrap gap-2">
             <div className="px-3 py-1.5 bg-primary/10 rounded-full">
-              <span className="text-sm font-medium text-primary">{currentComplaint.issueType}</span>
+              <span className="text-sm font-medium text-primary">{complaint.issueType}</span>
             </div>
-            <SeverityBadge severity={currentComplaint.severity} />
+            <SeverityBadge severity={complaint.severity} />
           </div>
 
           <div>
             <Label className="text-muted-foreground text-xs">Description</Label>
-            <p className="mt-1 text-sm leading-relaxed">{currentComplaint.description}</p>
+            <p className="mt-1 text-sm leading-relaxed">{complaint.description}</p>
           </div>
 
-          {currentComplaint.images.length > 0 && (
+          {complaint.images.length > 0 && (
             <div>
               <Label className="flex items-center gap-1 text-muted-foreground text-xs mb-2">
                 <ImageIcon className="h-3 w-3" />
                 Attached Images
               </Label>
               <div className="flex flex-wrap gap-2">
-                {currentComplaint.images.map((img, index) => (
+                {complaint.images.map((img, index) => (
                   <img
                     key={index}
                     src={img}
@@ -176,14 +211,14 @@ export const ComplaintDetail = ({ complaint }: ComplaintDetailProps) => {
             </div>
           )}
 
-          {currentComplaint.video && (
+          {complaint.video && (
             <div>
               <Label className="flex items-center gap-1 text-muted-foreground text-xs mb-2">
                 <Video className="h-3 w-3" />
                 Attached Video
               </Label>
               <video
-                src={currentComplaint.video}
+                src={complaint.video}
                 controls
                 className="w-full max-w-sm rounded-lg border"
               />
@@ -198,19 +233,19 @@ export const ComplaintDetail = ({ complaint }: ComplaintDetailProps) => {
         </CardHeader>
         <CardContent>
           <div className="flex items-center justify-between mb-4">
-            <LevelBadge level={currentComplaint.level} showRole />
+            <LevelBadge level={complaint.level} showRole />
           </div>
 
           <div className="flex flex-col sm:flex-row gap-3">
             {canEscalate && (
-              <Button onClick={handleEscalate} variant="outline" className="flex-1">
+              <Button onClick={handleEscalate} variant="outline" className="flex-1" disabled={isLoading}>
                 <ArrowUp className="h-4 w-4 mr-2" />
                 Escalate to Next Level
               </Button>
             )}
 
             {canResolve && (
-              <Button onClick={handleResolve} className="flex-1">
+              <Button onClick={handleResolve} className="flex-1" disabled={isLoading}>
                 <CheckCircle2 className="h-4 w-4 mr-2" />
                 Mark as Resolved
               </Button>
@@ -219,7 +254,7 @@ export const ComplaintDetail = ({ complaint }: ComplaintDetailProps) => {
         </CardContent>
       </Card>
 
-      {(canGiveFeedback || showFeedback) && !currentComplaint.feedback && (
+      {(canGiveFeedback || showFeedback) && !complaint.feedback && (
         <Card className="glass-card animate-slide-up">
           <CardHeader className="pb-3">
             <CardTitle className="text-lg font-display flex items-center gap-2">
@@ -261,14 +296,14 @@ export const ComplaintDetail = ({ complaint }: ComplaintDetailProps) => {
               />
             </div>
 
-            <Button onClick={handleSubmitFeedback} className="w-full">
+            <Button onClick={handleSubmitFeedback} className="w-full" disabled={isLoading}>
               Submit Feedback
             </Button>
           </CardContent>
         </Card>
       )}
 
-      {currentComplaint.feedback && (
+      {complaint.feedback && (
         <Card className="glass-card border-status-resolved/30">
           <CardHeader className="pb-3">
             <CardTitle className="text-lg font-display flex items-center gap-2 text-status-resolved">
@@ -282,18 +317,18 @@ export const ComplaintDetail = ({ complaint }: ComplaintDetailProps) => {
                 <Star
                   key={star}
                   className={`h-5 w-5 ${
-                    star <= currentComplaint.feedback!.rating
+                    star <= complaint.feedback!.rating
                       ? 'fill-amber-400 text-amber-400'
                       : 'text-muted-foreground/30'
                   }`}
                 />
               ))}
             </div>
-            {currentComplaint.feedback.comment && (
-              <p className="text-sm text-muted-foreground">{currentComplaint.feedback.comment}</p>
+            {complaint.feedback.comment && (
+              <p className="text-sm text-muted-foreground">{complaint.feedback.comment}</p>
             )}
             <p className="text-xs text-muted-foreground">
-              Submitted {format(new Date(currentComplaint.feedback.submittedAt), 'PPp')}
+              Submitted {format(new Date(complaint.feedback.submittedAt), 'PPp')}
             </p>
           </CardContent>
         </Card>
