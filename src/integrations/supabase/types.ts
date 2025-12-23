@@ -14,7 +14,69 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      complaints: {
+        Row: {
+          complaint_id: string
+          created_at: string
+          description: string
+          feedback_comment: string | null
+          feedback_rating: number | null
+          feedback_submitted_at: string | null
+          hostel: string
+          id: string
+          images: string[] | null
+          issue_type: string
+          level: Database["public"]["Enums"]["complaint_level"]
+          roll_number: string
+          room_number: string
+          severity: Database["public"]["Enums"]["complaint_severity"]
+          status: Database["public"]["Enums"]["complaint_status"]
+          student_name: string
+          updated_at: string
+          video: string | null
+        }
+        Insert: {
+          complaint_id: string
+          created_at?: string
+          description: string
+          feedback_comment?: string | null
+          feedback_rating?: number | null
+          feedback_submitted_at?: string | null
+          hostel: string
+          id?: string
+          images?: string[] | null
+          issue_type: string
+          level?: Database["public"]["Enums"]["complaint_level"]
+          roll_number: string
+          room_number: string
+          severity?: Database["public"]["Enums"]["complaint_severity"]
+          status?: Database["public"]["Enums"]["complaint_status"]
+          student_name: string
+          updated_at?: string
+          video?: string | null
+        }
+        Update: {
+          complaint_id?: string
+          created_at?: string
+          description?: string
+          feedback_comment?: string | null
+          feedback_rating?: number | null
+          feedback_submitted_at?: string | null
+          hostel?: string
+          id?: string
+          images?: string[] | null
+          issue_type?: string
+          level?: Database["public"]["Enums"]["complaint_level"]
+          roll_number?: string
+          room_number?: string
+          severity?: Database["public"]["Enums"]["complaint_severity"]
+          status?: Database["public"]["Enums"]["complaint_status"]
+          student_name?: string
+          updated_at?: string
+          video?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -23,7 +85,9 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      complaint_level: "Level 1" | "Level 2" | "Level 3" | "Level 4"
+      complaint_severity: "Normal" | "Needs Quick Attention" | "Extreme"
+      complaint_status: "Pending" | "Assigned" | "Escalated" | "Resolved"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +214,10 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      complaint_level: ["Level 1", "Level 2", "Level 3", "Level 4"],
+      complaint_severity: ["Normal", "Needs Quick Attention", "Extreme"],
+      complaint_status: ["Pending", "Assigned", "Escalated", "Resolved"],
+    },
   },
 } as const
