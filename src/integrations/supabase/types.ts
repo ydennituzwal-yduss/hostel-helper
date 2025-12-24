@@ -14,6 +14,48 @@ export type Database = {
   }
   public: {
     Tables: {
+      Complaint: {
+        Row: {
+          created_at: string
+          description: string | null
+          hostel: string | null
+          id: string
+          issue_type: string | null
+          level: number | null
+          roll_number: string | null
+          room_number: string | null
+          severity: string | null
+          status: string | null
+          student_name: string | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          hostel?: string | null
+          id?: string
+          issue_type?: string | null
+          level?: number | null
+          roll_number?: string | null
+          room_number?: string | null
+          severity?: string | null
+          status?: string | null
+          student_name?: string | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          hostel?: string | null
+          id?: string
+          issue_type?: string | null
+          level?: number | null
+          roll_number?: string | null
+          room_number?: string | null
+          severity?: string | null
+          status?: string | null
+          student_name?: string | null
+        }
+        Relationships: []
+      }
       complaints: {
         Row: {
           complaint_id: string
