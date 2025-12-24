@@ -1,5 +1,17 @@
+// ============================================================
+// COMPLAINT DETAIL COMPONENT
+// ============================================================
+// This component shows the full details of a single complaint.
+// It includes:
+// - Complaint info (hostel, room, student, etc.)
+// - Issue details (type, severity, description, attachments)
+// - Escalation controls (escalate button, current level)
+// - Worker assignment info (name and phone)
+// - Feedback form (for resolved complaints)
+// - Delete button (only for resolved complaints)
+// ============================================================
+
 import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Textarea } from '@/components/ui/textarea';
@@ -9,7 +21,7 @@ import { SeverityBadge } from './SeverityBadge';
 import { LevelBadge } from './LevelBadge';
 import { useToast } from '@/hooks/use-toast';
 import { useComplaints } from '@/hooks/useComplaints';
-import { Complaint, LEVEL_ROLES } from '@/types/complaint';
+import { Complaint, LEVEL_ROLES, LEVEL_WORKERS } from '@/types/complaint';
 import { format } from 'date-fns';
 import {
   ArrowUp,
@@ -22,6 +34,8 @@ import {
   Star,
   Image as ImageIcon,
   Video,
+  Phone,
+  Trash2,
 } from 'lucide-react';
 
 interface ComplaintDetailProps {
@@ -29,30 +43,74 @@ interface ComplaintDetailProps {
 }
 
 export const ComplaintDetail = ({ complaint }: ComplaintDetailProps) => {
-  const navigate = useNavigate();
+  // ============================================================
+  // HOOKS AND STATE
+  // ============================================================
+  // useToast: Shows notification messages (success, error, etc.)
+  // useComplaints: Our custom hook with all complaint operations
+  // ============================================================
   const { toast } = useToast();
-  const { escalateComplaint, resolveComplaint, submitFeedback, refetch } = useComplaints();
+  const { escalateComplaint, resolveComplaint, submitFeedback, deleteComplaint, refetch } = useComplaints();
 
+  // Local state for feedback form
   const [feedbackRating, setFeedbackRating] = useState(0);
   const [feedbackComment, setFeedbackComment] = useState('');
   const [showFeedback, setShowFeedback] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
+  // ============================================================
+  // PERMISSION CHECKS
+  // ============================================================
+  // These booleans determine which actions are available:
+  // - canEscalate: Can only escalate if not Level 4 and not Resolved
+  // - canResolve: Can only resolve if not already Resolved
+  // - canGiveFeedback: Can only give feedback if Resolved and no feedback yet
+  // - canDelete: Can only delete if status is Resolved
+  // ============================================================
   const canEscalate = complaint.level !== 'Level 4' && complaint.status !== 'Resolved';
   const canResolve = complaint.status !== 'Resolved';
   const canGiveFeedback = complaint.status === 'Resolved' && !complaint.feedback;
+  const canDelete = complaint.status === 'Resolved';
 
+  // ============================================================
+  // ESCALATE HANDLER
+  // ============================================================
+  // ⚠️ FIX FOR 404 ERROR:
+  // This handler calls escalateComplaint() which updates the database
+  // directly using Supabase. It does NOT navigate to any new page.
+  // 
+  // The old code might have used navigate('/escalate') or similar,
+  // which would cause a 404 on Vercel because that route doesn't exist.
+  // 
+  // Now we:
+  // 1. Call escalateComplaint() - updates Supabase directly
+  // 2. Call refetch() - refreshes the complaint list
+  // 3. Stay on the same page - user sees updated data
+  // ============================================================
   const handleEscalate = async () => {
     setIsLoading(true);
     try {
+      // This updates the database directly - no page navigation!
       await escalateComplaint(complaint.id);
+      
+      // Determine the next level for the toast message
+      const nextLevel = complaint.level === 'Level 1' ? 'Level 2' 
+        : complaint.level === 'Level 2' ? 'Level 3' 
+        : 'Level 4';
+      
+      // Get the worker assigned to the next level
+      const worker = LEVEL_WORKERS[nextLevel];
+      
+      // Show success message with new worker info
       toast({
         title: 'Complaint Escalated',
-        description: `Escalated to ${LEVEL_ROLES[complaint.level === 'Level 1' ? 'Level 2' : complaint.level === 'Level 2' ? 'Level 3' : 'Level 4']}`,
+        description: `Escalated to ${LEVEL_ROLES[nextLevel]}. Assigned to ${worker.name} (${worker.phone})`,
       });
+      
+      // Refresh data to show updated complaint
       await refetch();
-      navigate(0);
     } catch (error) {
+      // Show error message if something went wrong
       toast({
         title: 'Error',
         description: 'Failed to escalate complaint.',
@@ -63,6 +121,9 @@ export const ComplaintDetail = ({ complaint }: ComplaintDetailProps) => {
     }
   };
 
+  // ============================================================
+  // RESOLVE HANDLER
+  // ============================================================
   const handleResolve = async () => {
     setIsLoading(true);
     try {
@@ -73,7 +134,6 @@ export const ComplaintDetail = ({ complaint }: ComplaintDetailProps) => {
       });
       setShowFeedback(true);
       await refetch();
-      navigate(0);
     } catch (error) {
       toast({
         title: 'Error',
@@ -85,6 +145,48 @@ export const ComplaintDetail = ({ complaint }: ComplaintDetailProps) => {
     }
   };
 
+  // ============================================================
+  // DELETE HANDLER
+  // ============================================================
+  // This function deletes a resolved complaint from the database.
+  // 
+  // WHY ONLY RESOLVED COMPLAINTS?
+  // - Active complaints should not be deleted accidentally
+  // - Once resolved, users may want to clean up old complaints
+  // - The RLS policy in the database enforces this rule server-side
+  // ============================================================
+  const handleDelete = async () => {
+    // Confirm before deleting
+    if (!window.confirm('Are you sure you want to delete this complaint? This action cannot be undone.')) {
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      // Delete from database - this uses supabase.delete()
+      await deleteComplaint(complaint.id);
+      
+      toast({
+        title: 'Complaint Deleted',
+        description: 'The complaint has been permanently deleted.',
+      });
+      
+      // Navigate back to the main list since this complaint no longer exists
+      window.location.href = '/';
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to delete complaint.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  // ============================================================
+  // FEEDBACK HANDLER
+  // ============================================================
   const handleSubmitFeedback = async () => {
     if (feedbackRating === 0) {
       toast({
@@ -103,7 +205,6 @@ export const ComplaintDetail = ({ complaint }: ComplaintDetailProps) => {
         description: 'Thank you for your feedback!',
       });
       await refetch();
-      navigate(0);
     } catch (error) {
       toast({
         title: 'Error',
@@ -117,6 +218,10 @@ export const ComplaintDetail = ({ complaint }: ComplaintDetailProps) => {
 
   return (
     <div className="space-y-6 animate-fade-in">
+      {/* ============================================================
+          COMPLAINT HEADER CARD
+          Shows ID, status, hostel, room, student info, date
+          ============================================================ */}
       <Card className="glass-card overflow-hidden">
         <div className="bg-primary/5 px-4 py-3 border-b">
           <div className="flex flex-wrap items-center justify-between gap-2">
@@ -174,6 +279,10 @@ export const ComplaintDetail = ({ complaint }: ComplaintDetailProps) => {
         </CardContent>
       </Card>
 
+      {/* ============================================================
+          ISSUE DETAILS CARD
+          Shows issue type, severity, description, and attachments
+          ============================================================ */}
       <Card className="glass-card">
         <CardHeader className="pb-3">
           <CardTitle className="text-lg font-display">Issue Details</CardTitle>
@@ -227,6 +336,48 @@ export const ComplaintDetail = ({ complaint }: ComplaintDetailProps) => {
         </CardContent>
       </Card>
 
+      {/* ============================================================
+          WORKER ASSIGNMENT CARD
+          Shows the currently assigned worker's name and phone number.
+          This information is automatically updated when the complaint
+          is created or escalated to a new level.
+          ============================================================ */}
+      {complaint.assignedWorkerName && (
+        <Card className="glass-card border-primary/30">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-lg font-display flex items-center gap-2">
+              <User className="h-5 w-5 text-primary" />
+              Assigned Worker
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex items-center gap-3">
+              <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+                <User className="h-6 w-6 text-primary" />
+              </div>
+              <div>
+                <p className="font-semibold text-foreground">{complaint.assignedWorkerName}</p>
+                {complaint.assignedWorkerPhone && (
+                  <a 
+                    href={`tel:${complaint.assignedWorkerPhone}`}
+                    className="flex items-center gap-1 text-sm text-primary hover:underline"
+                  >
+                    <Phone className="h-3 w-3" />
+                    {complaint.assignedWorkerPhone}
+                  </a>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ============================================================
+          ESCALATION STATUS CARD
+          Shows current level and provides escalate/resolve buttons.
+          ⚠️ The Escalate button now uses direct Supabase update,
+          not page navigation. This prevents the 404 error on Vercel.
+          ============================================================ */}
       <Card className="glass-card">
         <CardHeader className="pb-3">
           <CardTitle className="text-lg font-display">Escalation Status</CardTitle>
@@ -237,6 +388,7 @@ export const ComplaintDetail = ({ complaint }: ComplaintDetailProps) => {
           </div>
 
           <div className="flex flex-col sm:flex-row gap-3">
+            {/* Escalate Button - Updates Supabase directly, no navigation */}
             {canEscalate && (
               <Button onClick={handleEscalate} variant="outline" className="flex-1" disabled={isLoading}>
                 <ArrowUp className="h-4 w-4 mr-2" />
@@ -244,16 +396,41 @@ export const ComplaintDetail = ({ complaint }: ComplaintDetailProps) => {
               </Button>
             )}
 
+            {/* Resolve Button */}
             {canResolve && (
               <Button onClick={handleResolve} className="flex-1" disabled={isLoading}>
                 <CheckCircle2 className="h-4 w-4 mr-2" />
                 Mark as Resolved
               </Button>
             )}
+
+            {/* ============================================================
+                DELETE BUTTON - Only for resolved complaints!
+                ============================================================
+                Why only for resolved complaints?
+                - Prevents accidental deletion of active issues
+                - Keeps history until the problem is actually fixed
+                - Matches our database RLS policy
+                ============================================================ */}
+            {canDelete && (
+              <Button 
+                onClick={handleDelete} 
+                variant="destructive" 
+                className="flex-1" 
+                disabled={isLoading}
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Delete Complaint
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>
 
+      {/* ============================================================
+          FEEDBACK FORM
+          Only shown when complaint is resolved and no feedback yet
+          ============================================================ */}
       {(canGiveFeedback || showFeedback) && !complaint.feedback && (
         <Card className="glass-card animate-slide-up">
           <CardHeader className="pb-3">
@@ -303,6 +480,10 @@ export const ComplaintDetail = ({ complaint }: ComplaintDetailProps) => {
         </Card>
       )}
 
+      {/* ============================================================
+          FEEDBACK DISPLAY
+          Shows submitted feedback if it exists
+          ============================================================ */}
       {complaint.feedback && (
         <Card className="glass-card border-status-resolved/30">
           <CardHeader className="pb-3">

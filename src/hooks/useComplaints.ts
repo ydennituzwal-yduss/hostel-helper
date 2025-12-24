@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Complaint, Status, Level, Severity } from '@/types/complaint';
+import { Complaint, Status, Level, Severity, LEVEL_WORKERS } from '@/types/complaint';
 
 // ============================================================
 // DATABASE SHAPE INTERFACE
@@ -23,6 +23,8 @@ interface DbComplaint {
   video: string | null;            // Optional video URL
   status: string;                  // Current status: Pending, In Progress, Resolved, etc.
   level: string;                   // Escalation level: Level 1, Level 2, Level 3, Level 4
+  assigned_worker_name: string | null;  // Worker assigned to handle this complaint
+  assigned_worker_phone: string | null; // Worker's phone number
   feedback_rating: number | null;  // User's rating after resolution (1-5)
   feedback_comment: string | null; // User's feedback comment
   feedback_submitted_at: string | null; // When feedback was submitted
@@ -52,6 +54,9 @@ const mapDbToComplaint = (db: DbComplaint): Complaint => ({
   level: db.level as Level,
   createdAt: db.created_at,
   updatedAt: db.updated_at,
+  // Map worker assignment fields (convert null to undefined)
+  assignedWorkerName: db.assigned_worker_name || undefined,
+  assignedWorkerPhone: db.assigned_worker_phone || undefined,
   // Only include feedback if a rating exists
   feedback: db.feedback_rating
     ? {
@@ -126,6 +131,7 @@ export const useComplaints = () => {
   // 1. Uploads images to Supabase Storage
   // 2. Uploads video to Supabase Storage (if provided)
   // 3. Inserts complaint record with file URLs into database
+  // 4. Assigns initial worker based on Level 1
   // ============================================================
   const addComplaint = async (complaint: Complaint, imageFiles: File[], videoFile?: File) => {
     const imageUrls: string[] = [];
@@ -165,6 +171,9 @@ export const useComplaints = () => {
       }
     }
 
+    // Get the initial worker for Level 1
+    const initialWorker = LEVEL_WORKERS['Level 1'];
+
     // STEP 3: Insert complaint record into database
     // Similar to SQL: INSERT INTO complaints (columns...) VALUES (values...)
     const { error } = await supabase.from('complaints').insert({
@@ -180,6 +189,9 @@ export const useComplaints = () => {
       video: videoUrl,                // Video URL (or null)
       status: complaint.status,
       level: complaint.level,
+      // Assign initial worker for Level 1
+      assigned_worker_name: initialWorker.name,
+      assigned_worker_phone: initialWorker.phone,
     });
 
     if (error) {
@@ -204,6 +216,9 @@ export const useComplaints = () => {
 
     if (updates.status) dbUpdates.status = updates.status;
     if (updates.level) dbUpdates.level = updates.level;
+    // Map worker assignment fields to snake_case for database
+    if (updates.assignedWorkerName) dbUpdates.assigned_worker_name = updates.assignedWorkerName;
+    if (updates.assignedWorkerPhone) dbUpdates.assigned_worker_phone = updates.assignedWorkerPhone;
     if (updates.feedback) {
       dbUpdates.feedback_rating = updates.feedback.rating;
       dbUpdates.feedback_comment = updates.feedback.comment;
@@ -228,15 +243,34 @@ export const useComplaints = () => {
   // ============================================================
   // ESCALATE COMPLAINT TO NEXT LEVEL
   // ============================================================
-  // Moves complaint from Level 1 → 2 → 3 → 4
-  // This is used when an issue needs higher authority attention.
+  // ⚠️ IMPORTANT: This function ONLY updates data in Supabase.
+  // It does NOT navigate to a new page or call any API routes.
+  // 
+  // WHY THIS FIXES THE 404 ERROR ON VERCEL:
+  // - The 404 error happens when your app tries to navigate to a 
+  //   route that doesn't exist (like /api/escalate or /escalate).
+  // - By using supabase.update() directly, we stay on the same page
+  //   and just update the database. No navigation = no 404!
+  // 
+  // This function:
+  // 1. Finds the complaint in local state
+  // 2. Calculates the next level (Level 1 → 2 → 3 → 4)
+  // 3. Gets the worker assigned to that level
+  // 4. Updates the database with new level, status, and worker
+  // 5. Refreshes the complaint list to show changes
   // ============================================================
   const escalateComplaint = async (id: string) => {
     // Find the complaint in our local state
     const complaint = complaints.find((c) => c.id === id);
-    if (!complaint) return;
+    
+    // If complaint not found, exit early
+    if (!complaint) {
+      console.error('Complaint not found:', id);
+      return;
+    }
 
-    // Define the escalation path
+    // Define the escalation path - each level maps to the next one
+    // Level 4 maps to null because it's the highest level
     const levelMap: Record<Level, Level | null> = {
       'Level 1': 'Level 2',
       'Level 2': 'Level 3',
@@ -244,11 +278,45 @@ export const useComplaints = () => {
       'Level 4': null,  // Can't escalate beyond Level 4
     };
 
+    // Get the next level from the map
     const nextLevel = levelMap[complaint.level];
-    if (nextLevel) {
-      // Update both the level and status
-      await updateComplaint(id, { level: nextLevel, status: 'Escalated' });
+    
+    // If there's no next level (already at Level 4), do nothing
+    if (!nextLevel) {
+      console.log('Already at maximum level');
+      return;
     }
+
+    // Get the worker details for the next level
+    // This uses the LEVEL_WORKERS mapping from complaint.ts
+    const worker = LEVEL_WORKERS[nextLevel];
+
+    // ============================================================
+    // DIRECT SUPABASE UPDATE - NO PAGE NAVIGATION!
+    // ============================================================
+    // This is the key fix for the 404 error.
+    // We're calling supabase.from('complaints').update() directly,
+    // which sends a request to Supabase (not to your Vercel app).
+    // This means no routing is involved, so no 404 can happen.
+    // ============================================================
+    const { error } = await supabase
+      .from('complaints')
+      .update({
+        level: nextLevel,                    // Update to new level
+        status: 'Escalated',                 // Set status to Escalated
+        assigned_worker_name: worker.name,   // Assign new worker
+        assigned_worker_phone: worker.phone, // Include worker's phone
+      })
+      .eq('complaint_id', id);  // Only update this specific complaint
+
+    if (error) {
+      console.error('Error escalating complaint:', error);
+      throw error;
+    }
+
+    // Refresh the complaint list to show the updated data
+    // This re-fetches from database and updates our local state
+    await fetchComplaints();
   };
 
   // ============================================================
@@ -259,6 +327,59 @@ export const useComplaints = () => {
   // ============================================================
   const resolveComplaint = async (id: string) => {
     await updateComplaint(id, { status: 'Resolved' });
+  };
+
+  // ============================================================
+  // DELETE COMPLAINT
+  // ============================================================
+  // ⚠️ IMPORTANT: This function ONLY deletes RESOLVED complaints!
+  // 
+  // WHY RESTRICT TO RESOLVED ONLY?
+  // - Prevents accidental deletion of active complaints
+  // - Ensures complaint history is preserved until resolution
+  // - Matches the RLS policy we created in the database
+  // 
+  // HOW SUPABASE DELETE WORKS:
+  // - supabase.from('table').delete() removes rows from the table
+  // - .eq() filters which rows to delete (like SQL WHERE clause)
+  // - The RLS policy on the server ALSO checks if status = 'Resolved'
+  //   This means even if someone bypasses the frontend check,
+  //   the database will reject the delete for non-resolved complaints.
+  // ============================================================
+  const deleteComplaint = async (id: string) => {
+    // First, find the complaint to verify it exists and is resolved
+    const complaint = complaints.find((c) => c.id === id);
+    
+    if (!complaint) {
+      console.error('Complaint not found:', id);
+      throw new Error('Complaint not found');
+    }
+
+    // Frontend check: Only allow deletion of resolved complaints
+    // This provides a good user experience with clear error messages
+    if (complaint.status !== 'Resolved') {
+      console.error('Cannot delete non-resolved complaint');
+      throw new Error('Only resolved complaints can be deleted');
+    }
+
+    // ============================================================
+    // SUPABASE DELETE QUERY
+    // ============================================================
+    // SQL equivalent: DELETE FROM complaints WHERE complaint_id = 'id'
+    // The RLS policy also enforces that status must be 'Resolved'
+    // ============================================================
+    const { error } = await supabase
+      .from('complaints')
+      .delete()
+      .eq('complaint_id', id);
+
+    if (error) {
+      console.error('Error deleting complaint:', error);
+      throw error;
+    }
+
+    // Refresh the list to remove the deleted complaint
+    await fetchComplaints();
   };
 
   // ============================================================
@@ -297,8 +418,9 @@ export const useComplaints = () => {
     isLoading,           // Loading state boolean
     addComplaint,        // Function to create new complaint
     updateComplaint,     // Function to update any complaint fields
-    escalateComplaint,   // Function to escalate to next level
+    escalateComplaint,   // Function to escalate to next level (FIXES 404!)
     resolveComplaint,    // Function to mark as resolved
+    deleteComplaint,     // Function to delete resolved complaints
     submitFeedback,      // Function to submit user feedback
     getComplaintById,    // Function to find complaint by ID
     refetch: fetchComplaints,  // Function to manually refresh data
