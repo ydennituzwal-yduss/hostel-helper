@@ -58,6 +58,8 @@ export type Database = {
       }
       complaints: {
         Row: {
+          assigned_worker_name: string | null
+          assigned_worker_phone: string | null
           complaint_id: string
           created_at: string
           description: string
@@ -78,6 +80,8 @@ export type Database = {
           video: string | null
         }
         Insert: {
+          assigned_worker_name?: string | null
+          assigned_worker_phone?: string | null
           complaint_id: string
           created_at?: string
           description: string
@@ -98,6 +102,8 @@ export type Database = {
           video?: string | null
         }
         Update: {
+          assigned_worker_name?: string | null
+          assigned_worker_phone?: string | null
           complaint_id?: string
           created_at?: string
           description?: string
