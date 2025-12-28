@@ -94,6 +94,66 @@ export const useComplaints = () => {
   // .select('*') means "get all columns"
   // .order() sorts results by created_at in descending order (newest first)
   // ============================================================
+  // ============================================================
+  // AUTO-ESCALATION LOGIC
+  // ============================================================
+  // This function checks if a complaint should be auto-escalated.
+  // Auto-escalation happens when:
+  // - Complaint is NOT resolved
+  // - Complaint is NOT at Level 4 (max level)
+  // - More than 3 days have passed since creation
+  // 
+  // WHY NO TIMERS OR BACKGROUND JOBS?
+  // - This is a simple approach that checks on every data fetch
+  // - No need for complex server-side cron jobs
+  // - Works perfectly for a prototype/demo
+  // ============================================================
+  const checkAutoEscalation = async (complaint: DbComplaint) => {
+    // Skip if already resolved - no need to escalate
+    if (complaint.status === 'Resolved') return false;
+    
+    // Skip if already at max level (Level 4)
+    if (complaint.level === 'Level 4') return false;
+    
+    // Calculate days since complaint was created
+    const createdDate = new Date(complaint.created_at);
+    const now = new Date();
+    const daysSinceCreated = Math.floor(
+      (now.getTime() - createdDate.getTime()) / (1000 * 60 * 60 * 24)
+    );
+    
+    // Auto-escalate if more than 3 days have passed
+    if (daysSinceCreated >= 3) {
+      // Get next level using type-safe mapping
+      const levelMap: Record<string, Level> = {
+        'Level 1': 'Level 2',
+        'Level 2': 'Level 3',
+        'Level 3': 'Level 4',
+      };
+      const nextLevel = levelMap[complaint.level];
+      
+      if (nextLevel) {
+        // Get worker for next level
+        const worker = LEVEL_WORKERS[nextLevel];
+        
+        // Update in database
+        await supabase
+          .from('complaints')
+          .update({
+            level: nextLevel,
+            status: 'Escalated',
+            assigned_worker_name: worker.name,
+            assigned_worker_phone: worker.phone,
+          })
+          .eq('complaint_id', complaint.complaint_id);
+        
+        return true; // Complaint was escalated
+      }
+    }
+    
+    return false; // No escalation needed
+  };
+
   const fetchComplaints = async () => {
     setIsLoading(true);  // Show loading spinner
     
@@ -106,9 +166,37 @@ export const useComplaints = () => {
     if (error) {
       // Always log errors for debugging
       console.error('Error fetching complaints:', error);
-    } else if (data) {
-      // Convert database format to app format using our mapper
-      setComplaints(data.map(mapDbToComplaint));
+      setIsLoading(false);
+      return;
+    }
+    
+    if (data) {
+      // ============================================================
+      // CHECK FOR AUTO-ESCALATION ON EACH COMPLAINT
+      // ============================================================
+      // This runs every time we fetch complaints.
+      // It checks each complaint and escalates if 3+ days old.
+      // ============================================================
+      let needsRefresh = false;
+      for (const complaint of data) {
+        const wasEscalated = await checkAutoEscalation(complaint);
+        if (wasEscalated) needsRefresh = true;
+      }
+      
+      // If any complaints were auto-escalated, fetch fresh data
+      if (needsRefresh) {
+        const { data: freshData } = await supabase
+          .from('complaints')
+          .select('*')
+          .order('created_at', { ascending: false });
+        
+        if (freshData) {
+          setComplaints(freshData.map(mapDbToComplaint));
+        }
+      } else {
+        // No escalations, use the data we already fetched
+        setComplaints(data.map(mapDbToComplaint));
+      }
     }
     
     setIsLoading(false);  // Hide loading spinner
