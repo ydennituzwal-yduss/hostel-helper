@@ -16,11 +16,13 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useComplaints } from '@/hooks/useComplaints';
 import { StatusBadge } from './StatusBadge';
 import { SeverityBadge } from './SeverityBadge';
 import { LevelBadge } from './LevelBadge';
 import { StudentComplaintForm } from './StudentComplaintForm';
+import { LEVEL_ROLES } from '@/types/complaint';
 import { 
   Building, 
   PlusCircle, 
@@ -29,7 +31,9 @@ import {
   User as UserIcon,
   AlertTriangle,
   Clock,
-  FileText
+  FileText,
+  Briefcase,
+  List
 } from 'lucide-react';
 import { format } from 'date-fns';
 
@@ -43,8 +47,10 @@ export const StudentView = ({ rollNumber, onLogout }: StudentViewProps) => {
   // STATE
   // ============================================================
   // showForm: toggles between complaint form and complaint list
+  // activeTab: switches between "new" (new complaint) and "my" (my complaints)
   // ============================================================
   const [showForm, setShowForm] = useState(false);
+  const [activeTab, setActiveTab] = useState<'new' | 'my'>('my');
   
   // Get complaints data and functions from our hook
   const { complaints, isLoading } = useComplaints();
@@ -103,45 +109,45 @@ export const StudentView = ({ rollNumber, onLogout }: StudentViewProps) => {
 
       {/* ============================================================
           MAIN CONTENT
-          Either shows the complaint form OR the list of complaints
+          Uses TABS to switch between New Complaint and My Complaints
+          APK-FRIENDLY: No page reloads, just tab switching
           ============================================================ */}
       <main className="container px-4 py-6">
-        {showForm ? (
-          // ============================================================
-          // COMPLAINT FORM VIEW
-          // ============================================================
-          <div className="animate-fade-in">
-            <Button 
-              variant="ghost" 
-              onClick={() => setShowForm(false)}
-              className="mb-4"
-            >
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to My Complaints
-            </Button>
-            
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'new' | 'my')} className="space-y-6">
+          {/* Tab Navigation */}
+          <TabsList className="grid w-full grid-cols-2">
+            <TabsTrigger value="new" className="flex items-center gap-2">
+              <PlusCircle className="h-4 w-4" />
+              New Complaint
+            </TabsTrigger>
+            <TabsTrigger value="my" className="flex items-center gap-2">
+              <List className="h-4 w-4" />
+              My Complaints
+            </TabsTrigger>
+          </TabsList>
+
+          {/* ============================================================
+              NEW COMPLAINT TAB
+              ============================================================ */}
+          <TabsContent value="new" className="animate-fade-in">
             <StudentComplaintForm 
               rollNumber={rollNumber}
-              onSuccess={() => setShowForm(false)}
+              onSuccess={() => setActiveTab('my')}
             />
-          </div>
-        ) : (
-          // ============================================================
-          // COMPLAINTS LIST VIEW
-          // ============================================================
-          <div className="space-y-6 animate-fade-in">
-            {/* Title and New Complaint Button */}
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-xl font-display font-bold">My Complaints</h2>
-                <p className="text-sm text-muted-foreground">
-                  {myComplaints.length} complaint{myComplaints.length !== 1 ? 's' : ''} found
-                </p>
-              </div>
-              <Button onClick={() => setShowForm(true)}>
-                <PlusCircle className="h-4 w-4 mr-2" />
-                New Complaint
-              </Button>
+          </TabsContent>
+
+          {/* ============================================================
+              MY COMPLAINTS TAB
+              Shows ALL complaints submitted by this student
+              Includes: Complaint ID, Issue Type, Status, Level, Worker details
+              ============================================================ */}
+          <TabsContent value="my" className="space-y-6 animate-fade-in">
+            {/* Header */}
+            <div>
+              <h2 className="text-xl font-display font-bold">My Complaints</h2>
+              <p className="text-sm text-muted-foreground">
+                {myComplaints.length} complaint{myComplaints.length !== 1 ? 's' : ''} found
+              </p>
             </div>
 
             {/* Complaints List */}
@@ -153,38 +159,43 @@ export const StudentView = ({ rollNumber, onLogout }: StudentViewProps) => {
                   <p className="text-muted-foreground text-center">
                     You haven't submitted any complaints yet.
                   </p>
-                  <Button onClick={() => setShowForm(true)} className="mt-4">
+                  <Button onClick={() => setActiveTab('new')} className="mt-4">
                     <PlusCircle className="h-4 w-4 mr-2" />
                     Submit Your First Complaint
                   </Button>
                 </CardContent>
               </Card>
             ) : (
-              // List of complaint cards
+              // List of complaint cards with full details
               <div className="space-y-4">
                 {myComplaints.map((complaint) => {
                   const daysSince = getDaysSinceCreated(complaint.createdAt);
                   // Check if complaint was auto-escalated (escalated status)
                   const wasAutoEscalated = complaint.status === 'Escalated';
+                  // Get worker role based on complaint level
+                  const workerRole = LEVEL_ROLES[complaint.level];
 
                   return (
                     <Card key={complaint.id} className="glass-card">
                       <CardHeader className="pb-2">
                         <div className="flex items-start justify-between gap-2">
                           <div>
-                            <CardTitle className="text-sm font-mono">
+                            {/* Complaint ID - clearly displayed */}
+                            <CardTitle className="text-sm font-mono text-primary">
                               {complaint.id}
                             </CardTitle>
+                            {/* Issue Type */}
                             <p className="text-lg font-medium mt-1">
                               {complaint.issueType}
                             </p>
                           </div>
+                          {/* Status Badge - Pending/Escalated/Resolved */}
                           <StatusBadge status={complaint.status} />
                         </div>
                       </CardHeader>
                       
                       <CardContent className="space-y-4">
-                        {/* Badges row */}
+                        {/* Badges row - Severity and Level */}
                         <div className="flex flex-wrap gap-2">
                           <SeverityBadge severity={complaint.severity} />
                           <LevelBadge level={complaint.level} />
@@ -205,24 +216,40 @@ export const StudentView = ({ rollNumber, onLogout }: StudentViewProps) => {
                           </div>
                         )}
 
-                        {/* Assigned Worker Info */}
+                        {/* ============================================================
+                            ASSIGNED WORKER CONTACT DETAILS
+                            Shows: Worker Name, Role (based on level), Phone Number
+                            This helps students contact the right person
+                            ============================================================ */}
                         {complaint.assignedWorkerName && (
-                          <div className="p-3 rounded-lg bg-muted/50 space-y-2">
-                            <p className="text-xs font-medium text-muted-foreground">
-                              Assigned Worker
+                          <div className="p-3 rounded-lg bg-muted/50 space-y-3">
+                            <p className="text-xs font-medium text-muted-foreground uppercase tracking-wide">
+                              Assigned Worker Contact
                             </p>
+                            
+                            {/* Worker Name */}
                             <div className="flex items-center gap-2">
                               <UserIcon className="h-4 w-4 text-primary" />
                               <span className="text-sm font-medium">
                                 {complaint.assignedWorkerName}
                               </span>
                             </div>
+                            
+                            {/* Worker Role - Based on escalation level */}
+                            <div className="flex items-center gap-2">
+                              <Briefcase className="h-4 w-4 text-primary" />
+                              <span className="text-sm text-muted-foreground">
+                                {workerRole}
+                              </span>
+                            </div>
+                            
+                            {/* Worker Phone - Clickable for mobile */}
                             {complaint.assignedWorkerPhone && (
                               <div className="flex items-center gap-2">
                                 <Phone className="h-4 w-4 text-primary" />
                                 <a 
                                   href={`tel:${complaint.assignedWorkerPhone}`}
-                                  className="text-sm text-primary hover:underline"
+                                  className="text-sm text-primary font-medium hover:underline"
                                 >
                                   {complaint.assignedWorkerPhone}
                                 </a>
@@ -245,8 +272,8 @@ export const StudentView = ({ rollNumber, onLogout }: StudentViewProps) => {
                 })}
               </div>
             )}
-          </div>
-        )}
+          </TabsContent>
+        </Tabs>
       </main>
     </div>
   );
