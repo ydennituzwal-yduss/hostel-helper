@@ -36,6 +36,19 @@ const Index = () => {
   const [rollNumber, setRollNumber] = useState<string>('');
 
   // ============================================================
+  // NIT WARANGAL BRANDING HEADER
+  // ============================================================
+  // Displayed at the top of all views for institutional branding
+  // ============================================================
+  const BrandingHeader = () => (
+    <div className="bg-primary text-primary-foreground py-2 px-4 text-center">
+      <h1 className="text-sm md:text-base font-bold">
+        NIT Warangal – Hostel Complaint Management System
+      </h1>
+    </div>
+  );
+
+  // ============================================================
   // LOGIN HANDLER
   // ============================================================
   // Called when user successfully logs in from LoginScreen
@@ -75,9 +88,14 @@ const Index = () => {
   // - student: Can submit and view their own complaints
   // - manager: Can manage all complaints, escalate, resolve
   // - warden: Full access with analytics and reports
+  // 
+  // BRANDING: NIT Warangal header is shown on all logged-in views
   // ============================================================
   return (
     <>
+      {/* NIT Warangal branding header - shown on all views */}
+      <BrandingHeader />
+      
       {currentRole === 'student' && (
         <StudentView rollNumber={rollNumber} onLogout={handleLogout} />
       )}

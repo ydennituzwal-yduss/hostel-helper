@@ -82,11 +82,16 @@ export const ManagerView = ({ onLogout }: ManagerViewProps) => {
   // ============================================================
   // STATISTICS
   // ============================================================
+  // IMPORTANT: Pending + Escalated = Unresolved (needs attention)
+  // Escalated complaints are NOT resolved - they still need work!
+  // ============================================================
   const stats = {
     total: complaints.length,
     pending: complaints.filter((c) => c.status === 'Pending').length,
     escalated: complaints.filter((c) => c.status === 'Escalated').length,
     resolved: complaints.filter((c) => c.status === 'Resolved').length,
+    // Unresolved = Pending + Escalated (both need attention)
+    unresolved: complaints.filter((c) => c.status === 'Pending' || c.status === 'Escalated').length,
   };
 
   // ============================================================
@@ -250,13 +255,24 @@ export const ManagerView = ({ onLogout }: ManagerViewProps) => {
 
       <main className="container px-4 py-6 space-y-6">
         {/* Stats Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {/* UPDATED: Added "Unresolved" card that combines Pending + Escalated */}
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3">
           <Card className="p-4">
             <div className="flex items-center gap-2 text-muted-foreground mb-1">
               <FileText className="h-4 w-4" />
               <span className="text-xs font-medium">Total</span>
             </div>
             <p className="text-2xl font-bold font-display">{stats.total}</p>
+          </Card>
+
+          {/* UNRESOLVED: Pending + Escalated combined - these need attention */}
+          <Card className="p-4 bg-destructive/10 border-destructive/20">
+            <div className="flex items-center gap-2 text-destructive mb-1">
+              <AlertTriangle className="h-4 w-4" />
+              <span className="text-xs font-medium">Unresolved</span>
+            </div>
+            <p className="text-2xl font-bold font-display text-destructive">{stats.unresolved}</p>
+            <p className="text-xs text-muted-foreground mt-1">Needs attention</p>
           </Card>
 
           <Card className="p-4 bg-status-pending-bg border-status-pending/20">
