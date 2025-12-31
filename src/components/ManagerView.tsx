@@ -105,6 +105,23 @@ export const ManagerView = ({ onLogout }: ManagerViewProps) => {
   };
 
   // ============================================================
+  // PARSE AVAILABILITY TIME FROM DESCRIPTION
+  // ============================================================
+  // Availability time is embedded at the start of description
+  // Format: [AVAILABILITY: <time>] <actual description>
+  // ============================================================
+  const parseAvailability = (description: string): { availability: string | null; cleanDescription: string } => {
+    const match = description.match(/^\[AVAILABILITY:\s*(.+?)\]\s*/);
+    if (match) {
+      return {
+        availability: match[1],
+        cleanDescription: description.replace(match[0], ''),
+      };
+    }
+    return { availability: null, cleanDescription: description };
+  };
+
+  // ============================================================
   // HANDLE ESCALATION
   // ============================================================
   // This function escalates a complaint to the next level.
@@ -358,6 +375,8 @@ export const ManagerView = ({ onLogout }: ManagerViewProps) => {
               const canEscalate = complaint.level !== 'Level 4' && complaint.status !== 'Resolved';
               const canResolve = complaint.status !== 'Resolved';
               const canDelete = complaint.status === 'Resolved';
+              // Parse availability time from description
+              const { availability, cleanDescription } = parseAvailability(complaint.description);
 
               return (
                 <Card key={complaint.id} className="glass-card">
@@ -390,9 +409,18 @@ export const ManagerView = ({ onLogout }: ManagerViewProps) => {
                       <span className="font-medium">{complaint.studentName}</span> ({complaint.rollNumber})
                     </p>
 
-                    {/* Description */}
+                    {/* Student Availability Time (if provided) - read-only for manager */}
+                    {availability && (
+                      <div className="flex items-center gap-2 text-sm p-2 rounded bg-muted/50">
+                        <Clock className="h-4 w-4 text-primary" />
+                        <span className="text-muted-foreground">Student Available:</span>
+                        <span className="font-medium">{availability}</span>
+                      </div>
+                    )}
+
+                    {/* Description - cleaned of availability tag */}
                     <p className="text-sm text-muted-foreground line-clamp-2">
-                      {complaint.description}
+                      {cleanDescription}
                     </p>
 
                     {/* Assigned Worker */}

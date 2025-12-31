@@ -146,6 +146,23 @@ export const WardenView = ({ onLogout }: WardenViewProps) => {
     return Math.floor(diffTime / (1000 * 60 * 60 * 24));
   };
 
+  // ============================================================
+  // PARSE AVAILABILITY TIME FROM DESCRIPTION
+  // ============================================================
+  // Availability time is embedded at the start of description
+  // Format: [AVAILABILITY: <time>] <actual description>
+  // ============================================================
+  const parseAvailability = (description: string): { availability: string | null; cleanDescription: string } => {
+    const match = description.match(/^\[AVAILABILITY:\s*(.+?)\]\s*/);
+    if (match) {
+      return {
+        availability: match[1],
+        cleanDescription: description.replace(match[0], ''),
+      };
+    }
+    return { availability: null, cleanDescription: description };
+  };
+
   const handleEscalate = async (id: string) => {
     try {
       await escalateComplaint(id);
@@ -382,6 +399,8 @@ export const WardenView = ({ onLogout }: WardenViewProps) => {
                   const canEscalate = complaint.level !== 'Level 4' && complaint.status !== 'Resolved';
                   const canResolve = complaint.status !== 'Resolved';
                   const canDelete = complaint.status === 'Resolved';
+                  // Parse availability time from description
+                  const { availability, cleanDescription } = parseAvailability(complaint.description);
 
                   return (
                     <Card key={complaint.id} className="glass-card">
@@ -411,6 +430,15 @@ export const WardenView = ({ onLogout }: WardenViewProps) => {
                         <p className="text-sm text-muted-foreground">
                           <span className="font-medium">{complaint.studentName}</span> ({complaint.rollNumber})
                         </p>
+
+                        {/* Student Availability Time (if provided) - read-only for warden */}
+                        {availability && (
+                          <div className="flex items-center gap-2 text-sm p-2 rounded bg-muted/50">
+                            <Clock className="h-4 w-4 text-primary" />
+                            <span className="text-muted-foreground">Student Available:</span>
+                            <span className="font-medium">{availability}</span>
+                          </div>
+                        )}
 
                         {complaint.assignedWorkerName && (
                           <div className="p-3 rounded-lg bg-muted/50">
@@ -569,17 +597,20 @@ export const WardenView = ({ onLogout }: WardenViewProps) => {
                 <CardDescription>Active and resolved complaints per worker</CardDescription>
               </CardHeader>
               <CardContent>
+                {/* FIX: Added barSize prop to reduce bar width and prevent overlap */}
+                {/* Also added padding/margin to prevent bars from covering labels */}
                 <ResponsiveContainer width="100%" height={250}>
-                  <BarChart data={workerWorkload}>
-                    <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                    <YAxis allowDecimals={false} />
+                  <BarChart data={workerWorkload} margin={{ top: 10, right: 10, left: 0, bottom: 5 }}>
+                    <XAxis dataKey="name" tick={{ fontSize: 10 }} />
+                    <YAxis allowDecimals={false} tick={{ fontSize: 10 }} width={30} />
                     <Tooltip 
                       formatter={(value, name) => [value, name === 'complaints' ? 'Active' : 'Resolved']}
                       labelFormatter={(label) => workerWorkload.find(w => w.name === label)?.fullName || label}
                     />
-                    <Legend />
-                    <Bar dataKey="complaints" name="Active" fill="hsl(25, 95%, 53%)" radius={[4, 4, 0, 0]} />
-                    <Bar dataKey="resolved" name="Resolved" fill="hsl(142, 76%, 36%)" radius={[4, 4, 0, 0]} />
+                    <Legend wrapperStyle={{ fontSize: '12px' }} />
+                    {/* FIX: Reduced barSize to prevent overlap and added gap with barGap */}
+                    <Bar dataKey="complaints" name="Active" fill="hsl(25, 95%, 53%)" radius={[4, 4, 0, 0]} barSize={20} />
+                    <Bar dataKey="resolved" name="Resolved" fill="hsl(142, 76%, 36%)" radius={[4, 4, 0, 0]} barSize={20} />
                   </BarChart>
                 </ResponsiveContainer>
               </CardContent>

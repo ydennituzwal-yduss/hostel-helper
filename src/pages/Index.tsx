@@ -17,7 +17,7 @@
 //    - warden → WardenView
 // ============================================================
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { UserRole } from '@/types/auth';
 import { LoginScreen } from '@/components/LoginScreen';
 import { StudentView } from '@/components/StudentView';
@@ -30,10 +30,15 @@ const Index = () => {
   // ============================================================
   // currentRole: null means not logged in, otherwise stores the user's role
   // rollNumber: only used for students to filter their complaints
-  // This is stored in memory only (not localStorage for security)
+  // 
+  // FIX: Using a key to force re-mount views when role changes.
+  // This ensures clean state when switching roles (e.g., student -> manager -> student).
+  // Without this, React may reuse component instances incorrectly.
   // ============================================================
   const [currentRole, setCurrentRole] = useState<UserRole | null>(null);
   const [rollNumber, setRollNumber] = useState<string>('');
+  // Key increments on each login to force component re-mount
+  const [sessionKey, setSessionKey] = useState(0);
 
   // ============================================================
   // NIT WARANGAL BRANDING HEADER
@@ -52,24 +57,25 @@ const Index = () => {
   // LOGIN HANDLER
   // ============================================================
   // Called when user successfully logs in from LoginScreen
-  // Stores role and optional rollNumber for students
+  // FIX: Increment sessionKey to force fresh component mount.
+  // This prevents stale state issues when switching roles.
   // ============================================================
-  const handleLogin = (role: UserRole, studentRollNumber?: string) => {
+  const handleLogin = useCallback((role: UserRole, studentRollNumber?: string) => {
     setCurrentRole(role);
-    if (studentRollNumber) {
-      setRollNumber(studentRollNumber);
-    }
-  };
+    setRollNumber(studentRollNumber || '');
+    // Increment key to force re-mount of view components
+    setSessionKey(prev => prev + 1);
+  }, []);
 
   // ============================================================
   // LOGOUT HANDLER
   // ============================================================
   // Clears the role and rollNumber, showing login screen again
   // ============================================================
-  const handleLogout = () => {
+  const handleLogout = useCallback(() => {
     setCurrentRole(null);
     setRollNumber('');
-  };
+  }, []);
 
   // ============================================================
   // CONDITIONAL RENDERING
@@ -91,19 +97,28 @@ const Index = () => {
   // 
   // BRANDING: NIT Warangal header is shown on all logged-in views
   // ============================================================
+  // ============================================================
+  // ROLE-BASED VIEW RENDERING
+  // ============================================================
+  // FIX: Added key={sessionKey} to force React to create a fresh
+  // component instance on each login. This fixes the issue where
+  // switching back to Student role wouldn't render the Student UI.
+  // Without this key, React might reuse old component state.
+  // ============================================================
   return (
     <>
       {/* NIT Warangal branding header - shown on all views */}
       <BrandingHeader />
       
+      {/* FIX: key={sessionKey} forces fresh component mount on role switch */}
       {currentRole === 'student' && (
-        <StudentView rollNumber={rollNumber} onLogout={handleLogout} />
+        <StudentView key={`student-${sessionKey}`} rollNumber={rollNumber} onLogout={handleLogout} />
       )}
       {currentRole === 'manager' && (
-        <ManagerView onLogout={handleLogout} />
+        <ManagerView key={`manager-${sessionKey}`} onLogout={handleLogout} />
       )}
       {currentRole === 'warden' && (
-        <WardenView onLogout={handleLogout} />
+        <WardenView key={`warden-${sessionKey}`} onLogout={handleLogout} />
       )}
     </>
   );
