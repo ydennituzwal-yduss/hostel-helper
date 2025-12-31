@@ -45,6 +45,7 @@ export const StudentComplaintForm = ({ rollNumber, onSuccess }: StudentComplaint
   const { addComplaint } = useComplaints();
 
   // Form data state
+  // FIX: Added availabilityTime field for student availability
   const [formData, setFormData] = useState({
     hostel: '',
     roomNumber: '',
@@ -53,6 +54,7 @@ export const StudentComplaintForm = ({ rollNumber, onSuccess }: StudentComplaint
     customIssue: '',
     severity: 'Normal' as Severity,
     description: '',
+    availabilityTime: '', // NEW: Student's preferred availability time
   });
 
   // File upload states
@@ -114,6 +116,18 @@ export const StudentComplaintForm = ({ rollNumber, onSuccess }: StudentComplaint
       const complaintId = generateComplaintId();
       const now = new Date().toISOString();
 
+      // ============================================================
+      // AVAILABILITY TIME STORAGE
+      // ============================================================
+      // Since we can't modify the database schema, we embed the
+      // availability time at the start of the description field.
+      // Format: [AVAILABILITY: <time>] <actual description>
+      // This can be parsed when displaying to extract the value.
+      // ============================================================
+      const descriptionWithAvailability = formData.availabilityTime.trim()
+        ? `[AVAILABILITY: ${formData.availabilityTime.trim()}] ${formData.description}`
+        : formData.description;
+
       // Build the complaint object
       const complaint: Complaint = {
         id: complaintId,
@@ -123,7 +137,7 @@ export const StudentComplaintForm = ({ rollNumber, onSuccess }: StudentComplaint
         rollNumber: rollNumber, // Use the logged-in roll number
         issueType: formData.issueType === 'Other' ? formData.customIssue : formData.issueType,
         severity: formData.severity,
-        description: formData.description,
+        description: descriptionWithAvailability, // Contains availability time if provided
         images: [],
         status: 'Pending',
         level: 'Level 1',
@@ -302,6 +316,27 @@ export const StudentComplaintForm = ({ rollNumber, onSuccess }: StudentComplaint
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               className="min-h-[120px] bg-background resize-none"
             />
+          </div>
+
+          {/* ============================================================
+              STUDENT AVAILABILITY TIME FIELD (NEW)
+              ============================================================
+              Free text input for when the student is available for repairs.
+              Examples: "After 6 PM", "Morning before classes", "Anytime"
+              This is stored embedded in the description field.
+              ============================================================ */}
+          <div className="space-y-2">
+            <Label htmlFor="availabilityTime">Student Availability Time (Optional)</Label>
+            <Input
+              id="availabilityTime"
+              placeholder="e.g., After 6 PM, Morning before classes, Anytime"
+              value={formData.availabilityTime}
+              onChange={(e) => setFormData({ ...formData, availabilityTime: e.target.value })}
+              className="bg-background"
+            />
+            <p className="text-xs text-muted-foreground">
+              When are you available for the repair work?
+            </p>
           </div>
         </CardContent>
       </Card>

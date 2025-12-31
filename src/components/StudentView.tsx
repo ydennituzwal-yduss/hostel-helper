@@ -53,7 +53,8 @@ export const StudentView = ({ rollNumber, onLogout }: StudentViewProps) => {
   const [activeTab, setActiveTab] = useState<'new' | 'my'>('my');
   
   // Get complaints data and functions from our hook
-  const { complaints, isLoading } = useComplaints();
+  // FIX: Also get refetch function to manually refresh after submission
+  const { complaints, isLoading, refetch } = useComplaints();
 
   // ============================================================
   // FILTER COMPLAINTS FOR THIS STUDENT
@@ -71,6 +72,24 @@ export const StudentView = ({ rollNumber, onLogout }: StudentViewProps) => {
     const now = new Date();
     const diffTime = now.getTime() - created.getTime();
     return Math.floor(diffTime / (1000 * 60 * 60 * 24));
+  };
+
+  // ============================================================
+  // PARSE AVAILABILITY TIME FROM DESCRIPTION
+  // ============================================================
+  // Availability time is embedded at the start of description
+  // Format: [AVAILABILITY: <time>] <actual description>
+  // This function extracts both the availability time and clean description.
+  // ============================================================
+  const parseAvailability = (description: string): { availability: string | null; cleanDescription: string } => {
+    const match = description.match(/^\[AVAILABILITY:\s*(.+?)\]\s*/);
+    if (match) {
+      return {
+        availability: match[1],
+        cleanDescription: description.replace(match[0], ''),
+      };
+    }
+    return { availability: null, cleanDescription: description };
   };
 
   // Show loading spinner while fetching data
@@ -128,11 +147,18 @@ export const StudentView = ({ rollNumber, onLogout }: StudentViewProps) => {
 
           {/* ============================================================
               NEW COMPLAINT TAB
+              FIX: onSuccess now refetches complaints AND switches tab.
+              This ensures newly added complaints appear immediately.
               ============================================================ */}
           <TabsContent value="new" className="animate-fade-in">
             <StudentComplaintForm 
               rollNumber={rollNumber}
-              onSuccess={() => setActiveTab('my')}
+              onSuccess={() => {
+                // FIX: Refetch complaints to include the newly added one
+                refetch();
+                // Then switch to "My Complaints" tab to show the new complaint
+                setActiveTab('my');
+              }}
             />
           </TabsContent>
 
@@ -174,6 +200,8 @@ export const StudentView = ({ rollNumber, onLogout }: StudentViewProps) => {
                   const wasAutoEscalated = complaint.status === 'Escalated';
                   // Get worker role based on complaint level
                   const workerRole = LEVEL_ROLES[complaint.level];
+                  // Parse availability time from description
+                  const { availability, cleanDescription } = parseAvailability(complaint.description);
 
                   return (
                     <Card key={complaint.id} className="glass-card">
@@ -201,10 +229,19 @@ export const StudentView = ({ rollNumber, onLogout }: StudentViewProps) => {
                           <LevelBadge level={complaint.level} />
                         </div>
 
-                        {/* Description */}
+                        {/* Description - without availability tag */}
                         <p className="text-sm text-muted-foreground line-clamp-2">
-                          {complaint.description}
+                          {cleanDescription}
                         </p>
+
+                        {/* Student Availability Time (if provided) */}
+                        {availability && (
+                          <div className="flex items-center gap-2 text-sm">
+                            <Clock className="h-4 w-4 text-primary" />
+                            <span className="text-muted-foreground">Available:</span>
+                            <span className="font-medium">{availability}</span>
+                          </div>
+                        )}
 
                         {/* Auto-escalation warning message */}
                         {wasAutoEscalated && (
