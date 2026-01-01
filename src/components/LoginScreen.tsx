@@ -41,6 +41,25 @@ export const LoginScreen = ({ onLogin }: LoginScreenProps) => {
   const { toast } = useToast();
 
   // ============================================================
+  // ROLE PICK HANDLER (FIX)
+  // ============================================================
+  // WHY THIS IS NEEDED:
+  // Some mobile/webview environments can be a bit inconsistent with
+  // click handling on complex nested elements. By routing ALL role
+  // changes through one handler and using a real <button type="button">
+  // in the UI, we ensure the selection always updates React state.
+  // ============================================================
+  const handlePickRole = (role: UserRole) => {
+    setSelectedRole(role);
+
+    // Clear stale validation/password state when switching roles.
+    // This avoids confusion where the user switches role but the old
+    // password/error remains and it "looks like" the role didn't switch.
+    setError('');
+    setPassword('');
+  };
+
+  // ============================================================
   // HANDLE FORM SUBMISSION
   // ============================================================
   // This function runs when the user clicks the Login button.
@@ -129,38 +148,43 @@ export const LoginScreen = ({ onLogin }: LoginScreenProps) => {
               <Label className="text-sm font-medium">Select Your Role</Label>
               <RadioGroup
                 value={selectedRole}
-                onValueChange={(value) => setSelectedRole(value as UserRole)}
+                // FIX: Keep RadioGroup selection and our UI in sync.
+                // Using the same handler avoids stale password/error state.
+                onValueChange={(value) => handlePickRole(value as UserRole)}
                 className="grid grid-cols-1 gap-3"
               >
-                {roleOptions.map((option) => (
-                  <div
-                    key={option.value}
-                    className={`flex items-center space-x-3 p-4 rounded-lg border cursor-pointer transition-all ${
-                      selectedRole === option.value
-                        ? 'border-primary bg-primary/5'
-                        : 'border-border bg-background hover:border-primary/50'
-                    }`}
-                    onClick={() => setSelectedRole(option.value)}
-                  >
-                    <RadioGroupItem value={option.value} id={option.value} />
-                    <div className="flex items-center gap-3 flex-1">
-                      <option.icon className={`h-5 w-5 ${
-                        selectedRole === option.value ? 'text-primary' : 'text-muted-foreground'
-                      }`} />
-                      <div>
-                        <Label 
-                          htmlFor={option.value} 
-                          className="cursor-pointer font-medium"
-                        >
-                          {option.label}
-                        </Label>
-                        <p className="text-xs text-muted-foreground">
-                          {option.description}
-                        </p>
+                {roleOptions.map((option) => {
+                  const isSelected = selectedRole === option.value;
+
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      className={`flex items-center space-x-3 p-4 rounded-lg border text-left transition-all ${
+                        isSelected
+                          ? 'border-primary bg-primary/5'
+                          : 'border-border bg-background hover:border-primary/50'
+                      }`}
+                      // FIX: Use a single handler to guarantee state updates.
+                      onClick={() => handlePickRole(option.value)}
+                    >
+                      <RadioGroupItem value={option.value} id={option.value} />
+                      <div className="flex items-center gap-3 flex-1">
+                        <option.icon
+                          className={`h-5 w-5 ${
+                            isSelected ? 'text-primary' : 'text-muted-foreground'
+                          }`}
+                        />
+                        <div>
+                          <Label htmlFor={option.value} className="cursor-pointer font-medium">
+                            {option.label}
+                          </Label>
+                          <p className="text-xs text-muted-foreground">{option.description}</p>
+                        </div>
                       </div>
-                    </div>
-                  </div>
-                ))}
+                    </button>
+                  );
+                })}
               </RadioGroup>
             </div>
 
