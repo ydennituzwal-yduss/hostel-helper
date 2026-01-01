@@ -15,7 +15,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+// Removed RadioGroup/RadioGroupItem - using custom radio buttons for reliable click handling
 import { useToast } from '@/hooks/use-toast';
 import { UserRole, validatePassword } from '@/types/auth';
 import { Building, Lock, User, UserCog, Shield } from 'lucide-react';
@@ -146,53 +146,50 @@ export const LoginScreen = ({ onLogin }: LoginScreenProps) => {
             {/* Role Selection */}
             <div className="space-y-3">
               <Label className="text-sm font-medium">Select Your Role</Label>
-              <RadioGroup
-                value={selectedRole}
-                // FIX: Keep RadioGroup selection and our UI in sync.
-                // Using the same handler avoids stale password/error state.
-                onValueChange={(value) => handlePickRole(value as UserRole)}
-                className="grid grid-cols-1 gap-3"
-              >
+              <div className="grid grid-cols-1 gap-3" role="radiogroup">
                 {roleOptions.map((option) => {
                   const isSelected = selectedRole === option.value;
 
                   return (
-                    <div
+                    <button
                       key={option.value}
-                      role="button"
-                      tabIndex={0}
-                      aria-pressed={isSelected}
+                      type="button"
+                      role="radio"
+                      aria-checked={isSelected}
                       className={`flex items-center space-x-3 p-4 rounded-lg border cursor-pointer text-left transition-all focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background ${
                         isSelected
                           ? 'border-primary bg-primary/5'
                           : 'border-border bg-background hover:border-primary/50'
                       }`}
-                      // FIX: Radix RadioGroupItem renders a <button>, so we must NOT wrap it in another <button>
-                      // (nested buttons break click behavior in some browsers and causes DOM nesting warnings).
                       onClick={() => handlePickRole(option.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault();
-                          handlePickRole(option.value);
-                        }
-                      }}
                     >
-                      <RadioGroupItem value={option.value} id={option.value} />
+                      {/* Custom radio indicator */}
+                      <span
+                        className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${
+                          isSelected
+                            ? 'border-primary'
+                            : 'border-muted-foreground'
+                        }`}
+                      >
+                        {isSelected && (
+                          <span className="h-2.5 w-2.5 rounded-full bg-primary" />
+                        )}
+                      </span>
                       <div className="flex items-center gap-3 flex-1">
                         <option.icon
                           className={`h-5 w-5 ${isSelected ? 'text-primary' : 'text-muted-foreground'}`}
                         />
                         <div>
-                          <Label htmlFor={option.value} className="cursor-pointer font-medium">
+                          <span className="cursor-pointer font-medium block">
                             {option.label}
-                          </Label>
+                          </span>
                           <p className="text-xs text-muted-foreground">{option.description}</p>
                         </div>
                       </div>
-                    </div>
+                    </button>
                   );
                 })}
-              </RadioGroup>
+              </div>
             </div>
 
             {/* Roll Number (only for students) */}
