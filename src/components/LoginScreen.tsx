@@ -157,23 +157,30 @@ export const LoginScreen = ({ onLogin }: LoginScreenProps) => {
                   const isSelected = selectedRole === option.value;
 
                   return (
-                    <button
+                    <div
                       key={option.value}
-                      type="button"
-                      className={`flex items-center space-x-3 p-4 rounded-lg border text-left transition-all ${
+                      role="button"
+                      tabIndex={0}
+                      aria-pressed={isSelected}
+                      className={`flex items-center space-x-3 p-4 rounded-lg border cursor-pointer text-left transition-all focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 focus:ring-offset-background ${
                         isSelected
                           ? 'border-primary bg-primary/5'
                           : 'border-border bg-background hover:border-primary/50'
                       }`}
-                      // FIX: Use a single handler to guarantee state updates.
+                      // FIX: Radix RadioGroupItem renders a <button>, so we must NOT wrap it in another <button>
+                      // (nested buttons break click behavior in some browsers and causes DOM nesting warnings).
                       onClick={() => handlePickRole(option.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          handlePickRole(option.value);
+                        }
+                      }}
                     >
                       <RadioGroupItem value={option.value} id={option.value} />
                       <div className="flex items-center gap-3 flex-1">
                         <option.icon
-                          className={`h-5 w-5 ${
-                            isSelected ? 'text-primary' : 'text-muted-foreground'
-                          }`}
+                          className={`h-5 w-5 ${isSelected ? 'text-primary' : 'text-muted-foreground'}`}
                         />
                         <div>
                           <Label htmlFor={option.value} className="cursor-pointer font-medium">
@@ -182,7 +189,7 @@ export const LoginScreen = ({ onLogin }: LoginScreenProps) => {
                           <p className="text-xs text-muted-foreground">{option.description}</p>
                         </div>
                       </div>
-                    </button>
+                    </div>
                   );
                 })}
               </RadioGroup>
