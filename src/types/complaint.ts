@@ -34,10 +34,10 @@ export interface Complaint {
 }
 
 export const HOSTELS = [
-  'Boys Hostel A',
-  'Boys Hostel B',
-  'Boys Hostel C',
-  'Girls Hostel A',
+  'Ramaappa hall',
+  'B.R.Ambethkar hall',
+  'krisna hall',
+  'priya darshani hall',
   'Girls Hostel B',
   'International Hostel',
 ];
