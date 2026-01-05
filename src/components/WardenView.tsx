@@ -560,24 +560,26 @@ export const WardenView = ({ onLogout }: WardenViewProps) => {
                     Severity Breakdown
                   </CardTitle>
                 </CardHeader>
-                <CardContent>
+                {/* Prevent SVG labels/overflow from overlapping content below */}
+                <CardContent className="overflow-hidden">
                   {severityData.length > 0 ? (
-                    <ResponsiveContainer width="100%" height={200}>
+                    <ResponsiveContainer width="100%" height={220}>
                       <PieChart>
                         <Pie
                           data={severityData}
                           cx="50%"
-                          cy="50%"
+                          cy="45%"
                           innerRadius={40}
-                          outerRadius={80}
+                          outerRadius={78}
                           dataKey="value"
-                          label={({ name, value }) => `${name}: ${value}`}
+                          labelLine={false}
                         >
                           {severityData.map((entry, index) => (
                             <Cell key={`cell-${index}`} fill={entry.color} />
                           ))}
                         </Pie>
                         <Tooltip />
+                        <Legend verticalAlign="bottom" height={36} wrapperStyle={{ fontSize: '12px' }} />
                       </PieChart>
                     </ResponsiveContainer>
                   ) : (
