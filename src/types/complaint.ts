@@ -72,11 +72,46 @@ export const LEVEL_ROLES: Record<Level, string> = {
 // Why hardcoded? In a real app, this would come from a database
 // of workers. For now, we use fixed values for simplicity.
 // ============================================================
+
+// ============================================================
+// LEVEL 1 WORKERS - ISSUE TYPE BASED ASSIGNMENT
+// ============================================================
+// For Level 1, we assign workers based on the type of issue.
+// Each issue type has a specialized worker to handle it.
+// ============================================================
+export const LEVEL_1_WORKERS: Record<string, { name: string; phone: string }> = {
+  'Plumbing': { name: 'Plumber Raju', phone: '9876543001' },
+  'Electrical': { name: 'Electrician Suresh', phone: '9876543002' },
+  'Cleanliness': { name: 'Cleaner Lakshmi', phone: '9876543003' },
+  'Furniture': { name: 'Carpenter Krishna', phone: '9876543004' },
+  'Internet/WiFi': { name: 'Network Technician Vijay', phone: '9876543005' },
+  'Water Supply': { name: 'Plumber Raju', phone: '9876543001' },  // Same as Plumbing
+  'Pest Control': { name: 'Pest Control Staff Ramesh', phone: '9876543006' },
+  'Security': { name: 'Security Staff Mohan', phone: '9876543007' },
+  'Air Conditioning': { name: 'AC Technician Prakash', phone: '9876543008' },
+  'Other': { name: 'General Maintenance Kumar', phone: '9876543009' },
+};
+
+// ============================================================
+// LEVEL 2, 3, 4 WORKERS - LEVEL BASED ASSIGNMENT
+// ============================================================
+// For Levels 2-4, workers are assigned based on escalation level.
+// ============================================================
 export const LEVEL_WORKERS: Record<Level, { name: string; phone: string }> = {
-  'Level 1': { name: 'Carpenter Krishna', phone: '9876543210' },
+  'Level 1': { name: 'General Maintenance Kumar', phone: '9876543009' },  // Fallback for Level 1
   'Level 2': { name: 'Maintenance Supervisor', phone: '9876500000' },
   'Level 3': { name: 'External Contractor', phone: '9876511111' },
   'Level 4': { name: 'Hostel Warden', phone: '9876522222' },
+};
+
+// ============================================================
+// HELPER FUNCTION: GET WORKER FOR LEVEL 1
+// ============================================================
+// Returns the appropriate worker based on issue type for Level 1.
+// Falls back to General Maintenance if issue type not found.
+// ============================================================
+export const getLevel1Worker = (issueType: string): { name: string; phone: string } => {
+  return LEVEL_1_WORKERS[issueType] || LEVEL_1_WORKERS['Other'];
 };
 
 export const generateComplaintId = (): string => {

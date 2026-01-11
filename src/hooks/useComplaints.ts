@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Complaint, Status, Level, Severity, LEVEL_WORKERS } from '@/types/complaint';
+import { Complaint, Status, Level, Severity, LEVEL_WORKERS, getLevel1Worker } from '@/types/complaint';
 
 // ============================================================
 // DATABASE SHAPE INTERFACE
@@ -259,8 +259,13 @@ export const useComplaints = () => {
       }
     }
 
-    // Get the initial worker for Level 1
-    const initialWorker = LEVEL_WORKERS['Level 1'];
+    // ============================================================
+    // GET WORKER FOR LEVEL 1 BASED ON ISSUE TYPE
+    // ============================================================
+    // For Level 1, we assign a worker based on the issue type.
+    // This ensures the right specialist handles each type of problem.
+    // ============================================================
+    const initialWorker = getLevel1Worker(complaint.issueType);
 
     // STEP 3: Insert complaint record into database
     // Similar to SQL: INSERT INTO complaints (columns...) VALUES (values...)
@@ -277,7 +282,7 @@ export const useComplaints = () => {
       video: videoUrl,                // Video URL (or null)
       status: complaint.status,
       level: complaint.level,
-      // Assign initial worker for Level 1
+      // Assign worker based on issue type for Level 1
       assigned_worker_name: initialWorker.name,
       assigned_worker_phone: initialWorker.phone,
     });
