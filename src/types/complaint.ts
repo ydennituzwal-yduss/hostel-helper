@@ -35,10 +35,11 @@ export interface Complaint {
 
 export const HOSTELS = [
   'Ramaappa hall',
-  'B.R.Ambethkar hall',
-  'krisna hall',
-  'priya darshani hall',
-  'Girls Hostel B',
+  'Kakathiya hall',
+  'DR.Ambedkar hall',
+  'Priya darshani hall',
+  'Girls Hostels',
+  'Vikaram Sarabhai hall',
   'International Hostel',
 ];
 
